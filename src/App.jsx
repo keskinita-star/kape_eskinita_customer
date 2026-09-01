@@ -9,6 +9,7 @@ import Orders from "./components/orders/Orders";
 import OrderTracking from "./components/orders/OrderTracking";
 import Profile from "./components/profile/Profile";
 import BottomNav from "./components/common/BottomNav";
+import OtpVerification from "./components/auth/OtpVerification";
 
 function ProtectedRoute({ children }) {
   const { customer, loading } = useAuth();
@@ -17,12 +18,19 @@ function ProtectedRoute({ children }) {
       ☕ Loading...
     </div>
   );
-  if (!customer) return <Navigate to="/login" />;
+  const otpVerified =
+    sessionStorage.getItem("otpVerified") === "true";
+
+if (!customer || !otpVerified)
+    return <Navigate to="/login" />;
+  
   return children;
 }
 
 export default function App() {
   const { customer } = useAuth();
+  const otpVerified =
+  sessionStorage.getItem("otpVerified") === "true";
 
   return (
     <div style={{ paddingBottom: customer ? 70 : 0 }}>
@@ -35,8 +43,9 @@ export default function App() {
         <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
         <Route path="/orders/:id" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/verify-otp" element={<OtpVerification />} />
       </Routes>
-      {customer && <BottomNav />}
+      {customer && otpVerified && <BottomNav />}
     </div>
   );
 }

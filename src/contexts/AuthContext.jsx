@@ -21,7 +21,11 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  const logout = async () => { await logoutCustomer(); setCustomer(null); };
+  const logout = async () => {
+  sessionStorage.removeItem("otpVerified");
+  await logoutCustomer();
+  setCustomer(null);
+};
 
   return (
     <AuthContext.Provider value={{ customer, setCustomer, loading, logout }}>

@@ -30,3 +30,6 @@ export const getCustomer = async (uid) => {
 
 export const updateCustomer = (uid, data) =>
   update(ref(rtdb, `customers/${uid}`), data);
+export const loginFirebaseOnly = async (email, password) => {
+  await signInWithEmailAndPassword(auth, email, password);
+};

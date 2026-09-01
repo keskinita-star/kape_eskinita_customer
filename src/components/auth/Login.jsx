@@ -1,28 +1,44 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { loginCustomer } from "../../services/customerService";
-import { useAuth } from "../../contexts/AuthContext";
+import { loginCustomer, logoutCustomer } from "../../services/customerService";
+import { generateOTP, sendOTP } from "../../services/emailService";
 import toast from "react-hot-toast";
 
 export default function Login() {
-  const { setCustomer } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
-    e.preventDefault(); setLoading(true);
-    try {
-      const customer = await loginCustomer(email, password);
-      setCustomer(customer);
-      toast.success(`Welcome back, ${customer.name}! ☕`);
-      navigate("/");
-    } catch (err) {
-      toast.error("Invalid email or password.");
-    } finally { setLoading(false); }
-  };
+ const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
+  try {
+    const customer = await loginCustomer(email, password);
+
+    const otp = generateOTP();
+
+    console.log("Generated OTP:", otp);
+
+    await sendOTP(customer.email, customer.name, otp);
+    await logoutCustomer();
+
+    toast.success("OTP sent successfully! Check your email.");
+
+    sessionStorage.setItem("loginOTP", otp);
+    sessionStorage.setItem("pendingCustomer", JSON.stringify(customer));
+    sessionStorage.setItem("loginEmail", email);
+    sessionStorage.setItem("loginPassword", password);
+    navigate("/verify-otp");
+
+  } catch (err) {
+    console.error(err);
+    toast.error(err.message || "Login failed.");
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div style={{ minHeight:"100vh", background:"#1a1814", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
       <div style={{ textAlign:"center", marginBottom:32 }}>
