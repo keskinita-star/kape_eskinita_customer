@@ -69,6 +69,7 @@ export default function Home() {
 
   const featured = products.filter(p => (p.onSale || p.featured) && p.available).slice(0, 3);
   const greeting = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening";
+  const customerName = customer?.name?.split(" ")[0] || "Guest";
 
   return (
     <div style={{ background: "#f5f3ee", minHeight: "100vh" }}>
@@ -78,7 +79,7 @@ export default function Home() {
           <div>
             <div style={{ fontSize: 12, color: "#6b6860" }}>Good {greeting},</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#f5f3ee", marginTop: 2 }}>
-              {customer?.name?.split(" ")[0]} ☕
+              {customerName} ☕
             </div>
           </div>
           <button onClick={() => navigate("/cart")}

@@ -31,18 +31,21 @@ export default function OtpVerification() {
 
       await loginFirebaseOnly(email, password);
 
-sessionStorage.setItem("otpVerified", "true");
+      sessionStorage.setItem("otpVerified", "true");
 
-sessionStorage.removeItem("loginOTP");
-sessionStorage.removeItem("pendingCustomer");
-sessionStorage.removeItem("loginEmail");
-sessionStorage.removeItem("loginPassword");
+      sessionStorage.removeItem("loginOTP");
+      sessionStorage.removeItem("pendingCustomer");
+      sessionStorage.removeItem("loginEmail");
+      sessionStorage.removeItem("loginPassword");
 
-toast.success("Login verified!");
+      const redirectTarget = sessionStorage.getItem("redirectAfterLogin") || "/";
+      sessionStorage.removeItem("redirectAfterLogin");
 
-setTimeout(() => {
-  navigate("/");
-}, 500);
+      toast.success("Login verified!");
+
+      setTimeout(() => {
+        navigate(redirectTarget);
+      }, 500);
 
     } catch (err) {
       console.error(err);

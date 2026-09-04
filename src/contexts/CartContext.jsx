@@ -1,9 +1,36 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
+  const { customer } = useAuth();
   const [cart, setCart] = useState([]);
+
+  useEffect(() => {
+    if (!customer) return;
+
+    const guestDrafts = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
+    if (!guestDrafts.length) return;
+
+    setCart(prev => {
+      const merged = [...prev];
+
+      guestDrafts.forEach(item => {
+        const key = `${item.productId}-${item.size}-${(item.addons || []).map(a => a.id).join(",")}`;
+        const existing = merged.find(i => i.cartKey === key);
+        if (existing) {
+          existing.qty += item.qty;
+          return;
+        }
+        merged.push({ ...item, cartKey: key });
+      });
+
+      return merged;
+    });
+
+    localStorage.removeItem("guestCartDraft");
+  }, [customer]);
 
   const addToCart = (item) => {
     setCart(prev => {
