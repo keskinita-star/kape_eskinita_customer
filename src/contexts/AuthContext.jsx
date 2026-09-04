@@ -4,10 +4,21 @@ import { auth } from "../services/firebase";
 import { getCustomer, logoutCustomer } from "../services/customerService";
 
 const AuthContext = createContext(null);
+const AUTH_STORAGE_KEYS = [
+  "otpVerified",
+  "loginOTP",
+  "loginEmail",
+  "loginPassword",
+  "pendingCustomer",
+  "redirectAfterLogin",
+  "guestCartDraft",
+];
 
-const clearCustomerState = () => {
-  localStorage.clear();
-  sessionStorage.clear();
+const clearAuthState = () => {
+  AUTH_STORAGE_KEYS.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
 };
 
 export function AuthProvider({ children }) {
@@ -25,23 +36,16 @@ export function AuthProvider({ children }) {
         setCustomer(data || null);
       } else {
         setCustomer(null);
-        clearCustomerState();
+        clearAuthState();
       }
       setLoading(false);
     });
   }, []);
 
   const logout = async () => {
-    sessionStorage.removeItem("otpVerified");
-    sessionStorage.removeItem("loginOTP");
-    sessionStorage.removeItem("loginEmail");
-    sessionStorage.removeItem("loginPassword");
-    sessionStorage.removeItem("pendingCustomer");
-    sessionStorage.removeItem("redirectAfterLogin");
-    localStorage.removeItem("guestCartDraft");
-
+    clearAuthState();
     setCustomer(null);
-    clearCustomerState();
+
     await signOut(auth);
     await logoutCustomer();
   };

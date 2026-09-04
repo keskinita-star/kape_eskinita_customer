@@ -13,24 +13,20 @@ import OtpVerification from "./components/auth/OtpVerification";
 
 function ProtectedRoute({ children }) {
   const { customer, loading } = useAuth();
+
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", fontSize:16, color:"#1a1814" }}>
       ☕ Loading...
     </div>
   );
-  const otpVerified =
-    sessionStorage.getItem("otpVerified") === "true";
 
-if (!customer || !otpVerified)
-    return <Navigate to="/login" />;
-  
+  if (!customer) return <Navigate to="/login" replace />;
+
   return children;
 }
 
 export default function App() {
   const { customer } = useAuth();
-  const otpVerified =
-  sessionStorage.getItem("otpVerified") === "true";
 
   return (
     <div style={{ paddingBottom: customer ? 70 : 0 }}>
@@ -45,7 +41,7 @@ export default function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/verify-otp" element={<OtpVerification />} />
       </Routes>
-      {customer && otpVerified && <BottomNav />}
+      {customer && <BottomNav />}
     </div>
   );
 }
