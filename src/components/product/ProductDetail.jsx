@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ref, get } from "firebase/database";
 import { rtdb } from "../../services/firebase";
+import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { SIZES, NO_SIZE_CATEGORIES, getAddonsForProduct } from "../../utils/constants";
 import { formatCurrency } from "../../utils/formatters";
@@ -33,6 +34,7 @@ function generatePickupSlots() {
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { customer, loading: authLoading } = useAuth();
   const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,30 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!pickupTime) return toast.error("Please select a pickup time.");
+
+    if (authLoading) return toast("Checking your account...", { icon: "⏳" });
+
+    if (!customer) {
+      const guestItem = {
+        productId: product.id,
+        name: needsSize ? `${product.name} (${selectedSize.label})` : product.name,
+        photo: product.photoUrl,
+        size: needsSize ? selectedSize.label : null,
+        addons: selectedAddons,
+        pickupTime,
+        finalPrice: unitPrice,
+        qty,
+        createdAt: Date.now(),
+      };
+
+      const savedDrafts = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
+      localStorage.setItem("guestCartDraft", JSON.stringify([...savedDrafts, guestItem]));
+      sessionStorage.setItem("redirectAfterLogin", `/product/${product.id}`);
+      toast.error("Please log in to add items to your cart.");
+      navigate("/login");
+      return;
+    }
+
     addToCart({
       productId: product.id,
       name: needsSize ? `${product.name} (${selectedSize.label})` : product.name,
