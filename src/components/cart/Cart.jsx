@@ -169,6 +169,13 @@ export default function Cart() {
   const pickupSlots = useMemo(() => generatePickupSlots(), []);
 
   const handlePlaceOrder = async (paymentMethod) => {
+    if (!customer) {
+      sessionStorage.setItem("redirectAfterLogin", "/cart");
+      toast.error("Please sign in or create an account to place your order.");
+      navigate("/login");
+      return;
+    }
+
     if (!cart.length) return;
     setPlacing(true);
     try {
@@ -304,7 +311,15 @@ export default function Cart() {
       {/* Place Order Button */}
       {cart.length > 0 && (
         <div style={{ position: "fixed", bottom: 70, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, padding: "12px 16px", background: "#fff", borderTop: "1px solid #e8e2d9", boxSizing: "border-box" }}>
-          <button onClick={() => setShowConfirm(true)}
+          <button onClick={() => {
+            if (!customer) {
+              sessionStorage.setItem("redirectAfterLogin", "/cart");
+              toast.error("Please sign in or create an account to place your order.");
+              navigate("/login");
+              return;
+            }
+            setShowConfirm(true);
+          }}
             style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#1a1814", color: "#fff", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>Place Order</span>
             <span>{formatCurrency(total)}</span>

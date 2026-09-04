@@ -81,29 +81,6 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     if (!pickupTime) return toast.error("Please select a pickup time.");
 
-    if (authLoading) return toast("Checking your account...", { icon: "⏳" });
-
-    if (!customer) {
-      const guestItem = {
-        productId: product.id,
-        name: needsSize ? `${product.name} (${selectedSize.label})` : product.name,
-        photo: product.photoUrl,
-        size: needsSize ? selectedSize.label : null,
-        addons: selectedAddons,
-        pickupTime,
-        finalPrice: unitPrice,
-        qty,
-        createdAt: Date.now(),
-      };
-
-      const savedDrafts = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
-      localStorage.setItem("guestCartDraft", JSON.stringify([...savedDrafts, guestItem]));
-      sessionStorage.setItem("redirectAfterLogin", "/cart");
-      toast.error("Please log in to add items to your cart.");
-      navigate("/login");
-      return;
-    }
-
     addToCart({
       productId: product.id,
       name: needsSize ? `${product.name} (${selectedSize.label})` : product.name,

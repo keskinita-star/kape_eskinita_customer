@@ -3,14 +3,26 @@ import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
+const readGuestCart = () => {
+  try {
+    const value = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+};
+
 export function CartProvider({ children }) {
   const { customer } = useAuth();
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(readGuestCart);
 
   useEffect(() => {
-    if (!customer) return;
+    if (!customer) {
+      localStorage.setItem("guestCartDraft", JSON.stringify(cart));
+      return;
+    }
 
-    const guestDrafts = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
+    const guestDrafts = readGuestCart();
     if (!guestDrafts.length) return;
 
     setCart(prev => {
