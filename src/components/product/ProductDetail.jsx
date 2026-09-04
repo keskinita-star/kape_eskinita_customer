@@ -98,7 +98,7 @@ export default function ProductDetail() {
 
       const savedDrafts = JSON.parse(localStorage.getItem("guestCartDraft") || "[]");
       localStorage.setItem("guestCartDraft", JSON.stringify([...savedDrafts, guestItem]));
-      sessionStorage.setItem("redirectAfterLogin", `/product/${product.id}`);
+      sessionStorage.setItem("redirectAfterLogin", "/cart");
       toast.error("Please log in to add items to your cart.");
       navigate("/login");
       return;

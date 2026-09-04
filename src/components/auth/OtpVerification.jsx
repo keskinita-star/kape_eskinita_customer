@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth } from "../../services/firebase";
 import { loginFirebaseOnly } from "../../services/customerService";
+import { generateOTP, sendOTP } from "../../services/emailService";
 import toast from "react-hot-toast";
 
 export default function OtpVerification() {
@@ -8,13 +10,50 @@ export default function OtpVerification() {
 
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const resendOtp = async () => {
+    if (countdown > 0) return;
+
+    const email = sessionStorage.getItem("loginEmail");
+    const name = JSON.parse(sessionStorage.getItem("pendingCustomer") || "{}")?.name || "Customer";
+
+    if (!email) {
+      toast.error("Session expired. Please sign up again.");
+      navigate("/signup");
+      return;
+    }
+
+    try {
+      setResendLoading(true);
+      const newOtp = generateOTP();
+      await sendOTP(email, name, newOtp);
+      sessionStorage.setItem("loginOTP", newOtp);
+      setCountdown(30);
+      toast.success("A new OTP has been sent.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Unable to resend OTP.");
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleVerify = async () => {
     const savedOTP = sessionStorage.getItem("loginOTP");
 
     if (!savedOTP) {
-      toast.error("OTP expired. Please login again.");
-      navigate("/login");
+      toast.error("OTP expired. Please sign up again.");
+      navigate("/signup");
       return;
     }
 
@@ -29,19 +68,21 @@ export default function OtpVerification() {
       const email = sessionStorage.getItem("loginEmail");
       const password = sessionStorage.getItem("loginPassword");
 
-      await loginFirebaseOnly(email, password);
+      if (!auth.currentUser && email && password) {
+        await loginFirebaseOnly(email, password);
+      }
 
       sessionStorage.setItem("otpVerified", "true");
+
+      const redirectTarget = sessionStorage.getItem("redirectAfterLogin") || "/cart";
 
       sessionStorage.removeItem("loginOTP");
       sessionStorage.removeItem("pendingCustomer");
       sessionStorage.removeItem("loginEmail");
       sessionStorage.removeItem("loginPassword");
-
-      const redirectTarget = sessionStorage.getItem("redirectAfterLogin") || "/";
       sessionStorage.removeItem("redirectAfterLogin");
 
-      toast.success("Login verified!");
+      toast.success("OTP verified successfully!");
 
       setTimeout(() => {
         navigate(redirectTarget);
@@ -49,7 +90,7 @@ export default function OtpVerification() {
 
     } catch (err) {
       console.error(err);
-      toast.error("Unable to complete login.");
+      toast.error("Unable to complete verification.");
     } finally {
       setLoading(false);
     }
@@ -75,23 +116,28 @@ export default function OtpVerification() {
       >
         <h2 style={{ textAlign: "center" }}>Email Verification</h2>
 
-        <p style={{ textAlign: "center", color: "#666" }}>
-          Enter the 6-digit OTP sent to your email.
+        <p style={{ textAlign: "center", color: "#666", marginBottom: 8 }}>
+          We sent a 6-digit OTP to your email.
+        </p>
+
+        <p style={{ textAlign: "center", color: "#9a9690", fontSize: 12, marginBottom: 16 }}>
+          Check your inbox and spam folder, then enter the code below.
         </p>
 
         <input
           type="text"
           maxLength={6}
           value={otp}
-          onChange={(e) => setOtp(e.target.value)}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
           placeholder="Enter OTP"
           style={{
             width: "100%",
             padding: 12,
             fontSize: 18,
             textAlign: "center",
-            marginTop: 20,
-            marginBottom: 20,
+            marginTop: 8,
+            marginBottom: 12,
+            letterSpacing: 4,
           }}
         />
 
@@ -101,15 +147,32 @@ export default function OtpVerification() {
           style={{
             width: "100%",
             padding: 12,
-            background: "#1a1814",
+            background: loading ? "#d0ccc4" : "#1a1814",
             color: "#fff",
             border: "none",
             borderRadius: 8,
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "Verifying..." : "Verify OTP"}
         </button>
+
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button
+            onClick={resendOtp}
+            disabled={countdown > 0 || resendLoading}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: countdown > 0 ? "#9a9690" : "#1a1814",
+              fontWeight: 600,
+              cursor: countdown > 0 || resendLoading ? "not-allowed" : "pointer",
+              fontSize: 12,
+            }}
+          >
+            {resendLoading ? "Sending..." : countdown > 0 ? `Resend code in ${countdown}s` : "Resend code"}
+          </button>
+        </div>
       </div>
     </div>
   );

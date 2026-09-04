@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signupCustomer } from "../../services/customerService";
+import { generateOTP, sendOTP } from "../../services/emailService";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
 
@@ -11,15 +12,31 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e) => {
-    e.preventDefault(); setLoading(true);
+    e.preventDefault();
+    setLoading(true);
+
     try {
-      await signupCustomer(form);
+      const user = await signupCustomer(form);
+      const otp = generateOTP();
+
+      await sendOTP(form.email, form.name, otp);
+
+      sessionStorage.setItem("loginOTP", otp);
+      sessionStorage.setItem("pendingCustomer", JSON.stringify({ uid: user.uid, ...form }));
+      sessionStorage.setItem("loginEmail", form.email);
+      sessionStorage.setItem("loginPassword", form.password);
+
+      const redirectTarget = sessionStorage.getItem("redirectAfterLogin") || "/cart";
+      sessionStorage.setItem("redirectAfterLogin", redirectTarget);
+
       const { getCustomer } = await import("../../services/customerService");
       const { auth } = await import("../../services/firebase");
       const customer = await getCustomer(auth.currentUser.uid);
       setCustomer(customer);
+
       toast.success(`Welcome to Kape Eskinita, ${form.name}! ☕`);
-      navigate("/");
+      toast.success("OTP sent to your email. Please verify to continue.");
+      navigate("/verify-otp");
     } catch (err) {
       toast.error(err.message || "Failed to create account.");
     } finally { setLoading(false); }
@@ -37,6 +54,10 @@ export default function Signup() {
       </div>
 
       <div style={{ width:"100%", maxWidth:380, background:"#fff", borderRadius:20, padding:28 }}>
+        <div style={{ textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:12, color:"#9a9690", letterSpacing:"0.5px", textTransform:"uppercase", fontWeight:700 }}>Verify your account</div>
+          <div style={{ fontSize:13, color:"#6b6860", marginTop:6 }}>We’ll send a one-time OTP to your email before you continue.</div>
+        </div>
         <form onSubmit={handleSignup} style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
             <label style={lbl}>Full Name</label>
