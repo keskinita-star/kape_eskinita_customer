@@ -168,24 +168,34 @@ export async function handler(event) {
     }
 
     const customerRef = database.ref(`customers/${order.customerId}`);
+    const customerSnapshot = await customerRef.get();
+    const verifiedCustomer = customerSnapshot.val();
+    if (!verifiedCustomer) {
+      console.error("PayMongo payment is confirmed, but the customer record was not found", {
+        eventId: webhookEvent.id || "unknown",
+      });
+      return jsonResponse(500, { error: "Payment confirmed, but the customer record could not be found" });
+    }
+
     const pointsEarned = Math.floor(Number(order.total) * LOYALTY_POINTS_PER_PESO);
     const customerResult = await customerRef.transaction(customer => {
-      if (!customer) return;
-      const creditedOrders = customer.paymongoCreditedOrders || {};
-      if (creditedOrders[orderId]) return customer;
+      const transactionCustomer = customer || verifiedCustomer;
+      const creditedOrders = transactionCustomer.paymongoCreditedOrders || {};
+      if (creditedOrders[orderId]) return transactionCustomer;
 
       return {
-        ...customer,
-        loyaltyPoints: (customer.loyaltyPoints || 0) + pointsEarned,
-        totalSpent: (customer.totalSpent || 0) + Number(order.total),
-        totalOrders: (customer.totalOrders || 0) + 1,
+        ...transactionCustomer,
+        loyaltyPoints: (transactionCustomer.loyaltyPoints || 0) + pointsEarned,
+        totalSpent: (transactionCustomer.totalSpent || 0) + Number(order.total),
+        totalOrders: (transactionCustomer.totalOrders || 0) + 1,
         paymongoCreditedOrders: { ...creditedOrders, [orderId]: true },
       };
     });
-    if (!customerResult.committed) {
+    if (!customerResult.committed || !customerResult.snapshot.val()?.paymongoCreditedOrders?.[orderId]) {
       console.error("PayMongo payment is confirmed, but customer totals were not credited", {
         eventId: webhookEvent.id || "unknown",
-        customerExists: customerResult.snapshot.exists(),
+        customerExists: Boolean(customerResult.snapshot.val()),
+        rewardMarkerExists: Boolean(customerResult.snapshot.val()?.paymongoCreditedOrders?.[orderId]),
       });
       return jsonResponse(500, { error: "Payment confirmed, but customer totals could not be updated" });
     }
