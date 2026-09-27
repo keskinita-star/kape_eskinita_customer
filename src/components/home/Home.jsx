@@ -51,14 +51,18 @@ export default function Home() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    loadProducts().then(list => {
-      setProducts(list);
-      setLoading(false);
-    });
+    loadProducts()
+      .then(list => setProducts(list))
+      .catch(error => {
+        console.error("Failed to load menu", error);
+        setLoadError("The menu could not be loaded. Check the Firebase configuration and database connection.");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const categories = ["All", ...new Set(products.map(p => p.category).filter(Boolean))];
@@ -133,6 +137,8 @@ export default function Home() {
         <div style={{ padding: "14px 20px 0" }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "#9a9690", fontSize: 13 }}>Loading menu…</div>
+          ) : loadError ? (
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#9a9690", fontSize: 13 }}>{loadError}</div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "#9a9690", fontSize: 13 }}>No items found.</div>
           ) : (

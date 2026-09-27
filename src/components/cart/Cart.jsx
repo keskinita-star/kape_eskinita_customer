@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { placeCustomerOrder } from "../../services/customerOrderService";
+import { createPaymentSession } from "../../services/paymentService";
 import { updateCustomer } from "../../services/customerService";
 import { formatCurrency } from "../../utils/formatters";
 import { LOYALTY_POINTS_PER_PESO } from "../../utils/constants";
@@ -195,7 +196,16 @@ export default function Cart() {
         total,
         note,
         payment: paymentMethod,   // "cash" | "gcash"
+        paymentStatus: paymentMethod === "cash" ? "pending" : "awaiting_payment",
       });
+
+      if (paymentMethod !== "cash") {
+        const payment = await createPaymentSession({ orderId: orderRef.key });
+
+        if (!payment.checkoutUrl) throw new Error("PayMongo did not return a checkout URL");
+        window.location.assign(payment.checkoutUrl);
+        return;
+      }
 
       const newPoints = (customer.loyaltyPoints || 0) + pointsEarned;
       const newTotal  = (customer.totalSpent   || 0) + total;

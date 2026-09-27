@@ -1,4 +1,14 @@
-[[redirects]]
+[[context.production.redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[functions]
+  directory = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 5173

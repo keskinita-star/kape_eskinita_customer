@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { listenToOrder } from "../../services/customerOrderService";
-import { formatCurrency, formatTime } from "../../utils/formatters";
+import { formatCurrency } from "../../utils/formatters";
 import TopBar from "../common/TopBar";
 
 const STEPS = [
@@ -12,7 +12,6 @@ const STEPS = [
 
 export default function OrderTracking() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
 
   useEffect(() => {
@@ -45,6 +44,15 @@ export default function OrderTracking() {
             </div>
           )}
         </div>
+
+          {order.payment && (
+            <div style={{ background:"#fff", borderRadius:12, padding:"12px 16px", border:"1px solid #e8e2d9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:12, color:"#6b6860" }}>Payment</span>
+              <span style={{ fontSize:12, fontWeight:700, color:order.payment === "cash" || order.paymentStatus === "paid" ? "#166534" : "#b45309" }}>
+                {order.payment === "cash" ? "Pay at counter" : order.paymentStatus === "paid" ? "Paid" : "Awaiting payment"}
+              </span>
+            </div>
+          )}
 
         {/* Progress Steps */}
         <div style={{ background:"#fff", borderRadius:16, padding:20, border:"1px solid #e8e2d9" }}>
