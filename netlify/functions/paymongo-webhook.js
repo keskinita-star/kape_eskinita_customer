@@ -127,12 +127,25 @@ export async function handler(event) {
       return jsonResponse(400, { error: "Payment amount does not match the order" });
     }
 
+    let orderGuardFailure = null;
     const orderResult = await orderRef.transaction(currentOrder => {
-      if (!currentOrder) return;
+      if (!currentOrder) {
+        orderGuardFailure = "order_missing_during_transaction";
+        return;
+      }
       if (currentOrder.paymentStatus === "paid") return currentOrder;
-      if (currentOrder.paymentStatus !== "awaiting_payment"
-        || currentOrder.paymongoCheckoutSessionId !== session.id
-        || Number(currentOrder.paymongoAmountInCentavos) !== expectedAmount) return;
+      if (currentOrder.paymentStatus !== "awaiting_payment") {
+        orderGuardFailure = "payment_status_not_awaiting_payment";
+        return currentOrder;
+      }
+      if (currentOrder.paymongoCheckoutSessionId !== session.id) {
+        orderGuardFailure = "checkout_session_mismatch";
+        return currentOrder;
+      }
+      if (Number(currentOrder.paymongoAmountInCentavos) !== expectedAmount) {
+        orderGuardFailure = "amount_mismatch";
+        return currentOrder;
+      }
 
       return {
         ...currentOrder,
@@ -141,11 +154,17 @@ export async function handler(event) {
         paidAt: Date.now(),
       };
     });
-    if (!orderResult.committed || orderResult.snapshot.val()?.paymentStatus !== "paid") {
+    const confirmedOrder = orderResult.snapshot.val();
+    if (!orderResult.committed || confirmedOrder?.paymentStatus !== "paid"
+      || confirmedOrder.paymongoCheckoutSessionId !== session.id
+      || Number(confirmedOrder.paymongoAmountInCentavos) !== expectedAmount) {
       console.error("PayMongo webhook could not mark the verified order paid", {
         eventId: webhookEvent.id || "unknown",
-        orderExists: orderResult.snapshot.exists(),
-        currentPaymentStatus: orderResult.snapshot.val()?.paymentStatus || "missing",
+        orderExists: Boolean(confirmedOrder),
+        currentPaymentStatus: confirmedOrder?.paymentStatus || "missing",
+        checkoutSessionMatched: confirmedOrder?.paymongoCheckoutSessionId === session.id,
+        amountMatched: Number(confirmedOrder?.paymongoAmountInCentavos) === expectedAmount,
+        orderGuardFailure,
       });
       return jsonResponse(409, { error: "Order payment state changed; retry webhook" });
     }
