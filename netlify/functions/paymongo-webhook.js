@@ -48,20 +48,35 @@ export async function handler(event) {
   const webhookEvent = payload.data || payload;
   const attributes = webhookEvent.attributes || {};
   if (!verifySignature(rawBody, signatureHeader, attributes.livemode === true)) {
+    console.warn("PayMongo webhook rejected: signature verification failed", {
+      webhookSecretConfigured: Boolean(process.env.PAYMONGO_WEBHOOK_SECRET),
+      eventType: attributes.type || "unknown",
+      livemode: attributes.livemode === true,
+    });
     return jsonResponse(401, { error: "Invalid webhook signature" });
   }
 
   if (attributes.type !== "checkout_session.payment.paid") {
+    console.info("PayMongo webhook ignored: event type is not handled", {
+      eventType: attributes.type || "unknown",
+    });
     return jsonResponse(200, { received: true, ignored: true });
   }
 
   const eventSession = attributes.data;
-  if (!eventSession?.id) return jsonResponse(400, { error: "Missing checkout session" });
+  if (!eventSession?.id) {
+    console.warn("PayMongo webhook rejected: checkout session is missing");
+    return jsonResponse(400, { error: "Missing checkout session" });
+  }
 
   try {
     const secretKey = process.env.PAYMONGO_SECRET_KEY;
     const expectedLivemode = secretKey?.startsWith("sk_live_");
     if (!secretKey || expectedLivemode !== (attributes.livemode === true)) {
+      console.warn("PayMongo webhook ignored: API key mode does not match event mode", {
+        apiKeyConfigured: Boolean(secretKey),
+        eventLivemode: attributes.livemode === true,
+      });
       return jsonResponse(200, { received: true, ignored: true });
     }
 
@@ -80,6 +95,7 @@ export async function handler(event) {
     const sessionAttributes = session?.attributes || {};
     const orderId = sessionAttributes.reference_number;
     if (!orderId || session.id !== eventSession.id) {
+      console.warn("PayMongo webhook rejected: checkout session reference is invalid");
       return jsonResponse(400, { error: "Checkout session reference is invalid" });
     }
 
@@ -88,6 +104,11 @@ export async function handler(event) {
     const orderSnapshot = await orderRef.get();
     const order = orderSnapshot.val();
     if (!order || order.payment !== "gcash" || order.paymongoCheckoutSessionId !== session.id) {
+      console.warn("PayMongo webhook could not match checkout session to an online order", {
+        orderFound: Boolean(order),
+        onlinePaymentOrder: order?.payment === "gcash",
+        checkoutSessionMatched: order?.paymongoCheckoutSessionId === session.id,
+      });
       return jsonResponse(404, { error: "Matching online order not found" });
     }
 
@@ -99,6 +120,10 @@ export async function handler(event) {
         && paymentAttributes.currency === "PHP";
     });
     if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0 || !paidPayment) {
+      console.warn("PayMongo webhook rejected: paid payment does not match expected order amount", {
+        expectedAmountValid: Number.isSafeInteger(expectedAmount) && expectedAmount > 0,
+        matchingPaidPaymentFound: Boolean(paidPayment),
+      });
       return jsonResponse(400, { error: "Payment amount does not match the order" });
     }
 
@@ -141,6 +166,9 @@ export async function handler(event) {
       }
     }
 
+    console.info("PayMongo checkout payment confirmed", {
+      orderUpdated: order.paymentStatus !== "paid",
+    });
     return jsonResponse(200, { received: true });
   } catch (error) {
     console.error("PayMongo webhook processing error", error);
