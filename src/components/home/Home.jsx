@@ -86,15 +86,23 @@ export default function Home() {
               {customerName} ☕
             </div>
           </div>
-          <button onClick={() => navigate("/cart")}
-            style={{ position: "relative", background: "#2c2924", border: "none", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }}>
-            <span style={{ fontSize: 20 }}>🛒</span>
-            {itemCount > 0 && (
-              <span style={{ position: "absolute", top: -4, right: -4, background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {itemCount}
-              </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {!customer && (
+              <button onClick={() => navigate("/login")}
+                style={{ background: "#2c2924", border: "1px solid #514a40", borderRadius: 10, padding: "9px 11px", color: "#f5f3ee", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                Sign In
+              </button>
             )}
-          </button>
+            <button onClick={() => navigate("/cart")}
+              style={{ position: "relative", background: "#2c2924", border: "none", borderRadius: 10, padding: "8px 10px", cursor: "pointer" }}>
+              <span style={{ fontSize: 20 }}>🛒</span>
+              {itemCount > 0 && (
+                <span style={{ position: "absolute", top: -4, right: -4, background: "#dc2626", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
         {/* Search */}
         <div style={{ position: "relative" }}>
