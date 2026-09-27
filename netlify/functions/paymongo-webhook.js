@@ -129,26 +129,24 @@ export async function handler(event) {
 
     let orderGuardFailure = null;
     const orderResult = await orderRef.transaction(currentOrder => {
-      if (!currentOrder) {
-        orderGuardFailure = "order_missing_during_transaction";
-        return;
-      }
-      if (currentOrder.paymentStatus === "paid") return currentOrder;
-      if (currentOrder.paymentStatus !== "awaiting_payment") {
+      orderGuardFailure = null;
+      const transactionOrder = currentOrder || order;
+      if (transactionOrder.paymentStatus === "paid") return transactionOrder;
+      if (transactionOrder.paymentStatus !== "awaiting_payment") {
         orderGuardFailure = "payment_status_not_awaiting_payment";
-        return currentOrder;
+        return transactionOrder;
       }
-      if (currentOrder.paymongoCheckoutSessionId !== session.id) {
+      if (transactionOrder.paymongoCheckoutSessionId !== session.id) {
         orderGuardFailure = "checkout_session_mismatch";
-        return currentOrder;
+        return transactionOrder;
       }
-      if (Number(currentOrder.paymongoAmountInCentavos) !== expectedAmount) {
+      if (Number(transactionOrder.paymongoAmountInCentavos) !== expectedAmount) {
         orderGuardFailure = "amount_mismatch";
-        return currentOrder;
+        return transactionOrder;
       }
 
       return {
-        ...currentOrder,
+        ...transactionOrder,
         paymentStatus: "paid",
         paymongoPaymentId: paidPayment.id,
         paidAt: Date.now(),
