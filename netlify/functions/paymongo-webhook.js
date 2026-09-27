@@ -127,47 +127,55 @@ export async function handler(event) {
       return jsonResponse(400, { error: "Payment amount does not match the order" });
     }
 
-    if (order.paymentStatus !== "paid") {
-      const customerRef = database.ref(`customers/${order.customerId}`);
-      const pointsEarned = Math.floor(Number(order.total) * LOYALTY_POINTS_PER_PESO);
-      const customerResult = await customerRef.transaction(customer => {
-        if (!customer) return;
-        const creditedOrders = customer.paymongoCreditedOrders || {};
-        if (creditedOrders[orderId]) return customer;
+    const orderResult = await orderRef.transaction(currentOrder => {
+      if (!currentOrder) return;
+      if (currentOrder.paymentStatus === "paid") return currentOrder;
+      if (currentOrder.paymentStatus !== "awaiting_payment"
+        || currentOrder.paymongoCheckoutSessionId !== session.id
+        || Number(currentOrder.paymongoAmountInCentavos) !== expectedAmount) return;
 
-        return {
-          ...customer,
-          loyaltyPoints: (customer.loyaltyPoints || 0) + pointsEarned,
-          totalSpent: (customer.totalSpent || 0) + Number(order.total),
-          totalOrders: (customer.totalOrders || 0) + 1,
-          paymongoCreditedOrders: { ...creditedOrders, [orderId]: true },
-        };
+      return {
+        ...currentOrder,
+        paymentStatus: "paid",
+        paymongoPaymentId: paidPayment.id,
+        paidAt: Date.now(),
+      };
+    });
+    if (!orderResult.committed || orderResult.snapshot.val()?.paymentStatus !== "paid") {
+      console.error("PayMongo webhook could not mark the verified order paid", {
+        eventId: webhookEvent.id || "unknown",
+        orderExists: orderResult.snapshot.exists(),
+        currentPaymentStatus: orderResult.snapshot.val()?.paymentStatus || "missing",
       });
-      if (!customerResult.committed) {
-        return jsonResponse(500, { error: "Could not update customer totals" });
-      }
+      return jsonResponse(409, { error: "Order payment state changed; retry webhook" });
+    }
 
-      const orderResult = await orderRef.transaction(currentOrder => {
-        if (!currentOrder) return;
-        if (currentOrder.paymentStatus === "paid") return currentOrder;
-        if (currentOrder.paymentStatus !== "awaiting_payment"
-          || currentOrder.paymongoCheckoutSessionId !== session.id
-          || Number(currentOrder.paymongoAmountInCentavos) !== expectedAmount) return;
+    const customerRef = database.ref(`customers/${order.customerId}`);
+    const pointsEarned = Math.floor(Number(order.total) * LOYALTY_POINTS_PER_PESO);
+    const customerResult = await customerRef.transaction(customer => {
+      if (!customer) return;
+      const creditedOrders = customer.paymongoCreditedOrders || {};
+      if (creditedOrders[orderId]) return customer;
 
-        return {
-          ...currentOrder,
-          paymentStatus: "paid",
-          paymongoPaymentId: paidPayment.id,
-          paidAt: Date.now(),
-        };
+      return {
+        ...customer,
+        loyaltyPoints: (customer.loyaltyPoints || 0) + pointsEarned,
+        totalSpent: (customer.totalSpent || 0) + Number(order.total),
+        totalOrders: (customer.totalOrders || 0) + 1,
+        paymongoCreditedOrders: { ...creditedOrders, [orderId]: true },
+      };
+    });
+    if (!customerResult.committed) {
+      console.error("PayMongo payment is confirmed, but customer totals were not credited", {
+        eventId: webhookEvent.id || "unknown",
+        customerExists: customerResult.snapshot.exists(),
       });
-      if (!orderResult.committed) {
-        return jsonResponse(409, { error: "Order payment state changed; retry webhook" });
-      }
+      return jsonResponse(500, { error: "Payment confirmed, but customer totals could not be updated" });
     }
 
     console.info("PayMongo checkout payment confirmed", {
-      orderUpdated: order.paymentStatus !== "paid",
+      eventId: webhookEvent.id || "unknown",
+      orderAlreadyPaid: order.paymentStatus === "paid",
     });
     return jsonResponse(200, { received: true });
   } catch (error) {
